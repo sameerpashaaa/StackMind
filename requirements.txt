@@ -1,0 +1,68 @@
+# Core dependencies
+langchain>=0.0.267
+langchain-core>=0.0.10
+langchain-community>=0.0.10
+langchain-mistralai>=0.0.5
+python-dotenv>=1.0.0
+pydantic>=2.0.3
+typer>=0.9.0
+rich>=13.6.0
+
+# For memory and storage
+chromadb>=0.4.6  # Vector database
+sqlite3>=0.0.1  # Local database
+
+# For multi-modal processing
+pillow>=9.5.0  # Image processing
+pytesseract>=0.3.10  # OCR for images
+speech_recognition>=3.10.0  # Voice recognition
+pydub>=0.25.1  # Audio processing
+google-cloud-speech>=2.21.0  # Cloud speech recognition
+whisper>=1.1.10  # OpenAI's speech recognition
+langdetect>=1.0.9  # Language detection
+
+# For code processing and execution
+astroid>=2.15.5  # Python code analysis
+pylint>=2.17.4  # Code quality analysis
+black>=23.10.1  # Code formatting
+radon>=6.0.1  # Code complexity analysis
+prettier>=0.0.7  # JavaScript formatting
+
+# For data handling and visualization
+pandas>=2.0.3
+matplotlib>=3.7.2
+seaborn>=0.12.2
+networkx>=3.1  # For graph visualization
+pydot>=1.4.2  # Graph visualization
+pyvis>=0.3.2  # Interactive network visualization
+openpyxl>=3.1.2  # Excel file handling
+
+# For web integration and API
+fastapi>=0.100.0
+uvicorn>=0.22.0
+
+# For symbolic computation and mathematics
+sympy>=1.12  # Symbolic mathematics
+numpy>=1.26.0
+scipy>=1.11.3
+
+# For knowledge graphs and reasoning
+rdflib>=6.3.2  # RDF processing
+owlready2>=0.40  # Ontology handling
+
+# For LangGraph (optional)
+langchain-experimental>=0.0.6
+
+# For real-time data integration
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+yfinance>=0.2.31  # Financial data
+newsapi-python>=0.2.7  # News API
+feedparser>=6.0.10  # RSS feed parsing
+sqlalchemy>=2.0.22  # Database ORM
+
+# For testing and development
+pytest>=7.4.0
+mypy>=1.6.1  # Type checking
+flake8>=6.1.0  # Linting
+isort>=5.12.0  # Import sorting
