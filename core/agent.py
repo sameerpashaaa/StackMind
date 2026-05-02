@@ -75,8 +75,8 @@ class ProblemSolverAgent:
         
         if input_settings.get("enable_image", True):
             processors["image"] = ImageProcessor(
-                max_size=input_settings.get("max_image_size", 10 * 1024 * 1024),
-                supported_formats=input_settings.get("supported_image_formats", ["jpg", "jpeg", "png"])
+                llm=self.llm,
+                settings=self.settings
             )
         
         if input_settings.get("enable_voice", True):
@@ -84,7 +84,8 @@ class ProblemSolverAgent:
         
         if input_settings.get("enable_code", True):
             processors["code"] = CodeProcessor(
-                supported_languages=input_settings.get("supported_code_languages", ["python", "javascript"])
+                llm=self.llm,
+                settings=self.settings
             )
         
         logger.info(f"Initialized processors: {', '.join(processors.keys())}")
@@ -102,12 +103,12 @@ class ProblemSolverAgent:
             solvers["math"] = MathSolver(self.llm, self.settings)
         
         if "code" in enabled_domains:
-            from domains.code_analyzer import CodeAnalyzer
-            solvers["code"] = CodeAnalyzer(self.llm, self.settings)
+            from domains.code_solver import CodeSolver
+            solvers["code"] = CodeSolver(self.llm)
         
         if "science" in enabled_domains:
             from domains.science_solver import ScienceSolver
-            solvers["science"] = ScienceSolver(self.llm, self.settings)
+            solvers["science"] = ScienceSolver(self.llm)
         
         logger.info(f"Initialized domain solvers: {', '.join(solvers.keys())}")
         return solvers

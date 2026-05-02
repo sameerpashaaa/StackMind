@@ -1,0 +1,246 @@
+/* ================================================================
+   Page-Specific Styles
+   Styles for individual views not covered by generic components
+   ================================================================ */
+
+/* ── Home Workspace ───────────────────────────────────────────── */
+.home-workspace {
+  max-width: 800px;
+  margin: 0 auto;
+  padding-top: var(--space-3xl);
+}
+
+.home-hero {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.home-hero .page-header__title {
+  font-size: 36px;
+  letter-spacing: -0.03em;
+  margin-bottom: var(--space-sm);
+}
+
+.home-hero .page-header__subtitle {
+  font-family: var(--font-code);
+  font-size: var(--text-code-size);
+  color: var(--color-on-surface-muted);
+}
+
+/* Input Mode Tabs */
+.input-modes {
+  display: flex;
+  gap: var(--space-xs);
+  justify-content: center;
+  margin-bottom: var(--space-lg);
+}
+
+.input-mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-body-sm-size);
+  font-weight: 500;
+  color: var(--color-on-surface-variant);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.input-mode:hover {
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface);
+}
+
+.input-mode.active {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.input-mode .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* Problem Textarea */
+.problem-textarea {
+  border-radius: var(--radius-lg);
+  min-height: 200px;
+  font-size: var(--text-body-lg-size);
+  line-height: var(--text-body-lg-line);
+  resize: vertical;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.problem-textarea:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.08);
+}
+
+/* Code Textarea */
+.code-textarea {
+  border-radius: var(--radius-lg);
+  min-height: 280px;
+  tab-size: 2;
+}
+
+.code-input-header {
+  margin-bottom: var(--space-sm);
+}
+
+/* Input Toolbar */
+.input-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-md);
+  gap: var(--space-md);
+}
+
+.input-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.input-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.domain-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.domain-selector .select {
+  width: 160px;
+}
+
+/* Home Footer */
+.home-footer {
+  text-align: center;
+  margin-top: var(--space-xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Voice Recording */
+.voice-input-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-2xl);
+}
+
+.voice-record-btn {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  border: none;
+}
+
+.voice-record-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 20px rgba(24, 24, 27, 0.2);
+}
+
+.voice-record-btn.recording {
+  background: var(--color-error);
+  animation: pulse-ring 1.5s ease infinite;
+}
+
+.voice-record-btn .material-symbols-outlined {
+  font-size: 32px;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.4); }
+  70% { box-shadow: 0 0 0 20px rgba(186, 26, 26, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(186, 26, 26, 0); }
+}
+
+/* ── Solution View ────────────────────────────────────────────── */
+.solution-header {
+  margin-bottom: var(--space-lg);
+}
+
+.solution-header__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-xl);
+}
+
+.solution-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.solution-text {
+  font-size: var(--text-body-sm-size);
+  line-height: var(--text-body-lg-line);
+  color: var(--color-on-surface);
+}
+
+.solution-text p {
+  margin-bottom: var(--space-sm);
+}
+
+/* Engine Logs */
+.engine-logs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.log-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-container-low);
+}
+
+/* Loading Steps */
+.loading-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.loading-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--text-body-sm-size);
+  color: var(--color-on-surface-variant);
+}
+
+.loading-step.active {
+  color: var(--color-on-surface);
+}
+
+/* Solve Loading */
+.solve-loading {
+  padding: var(--space-xl);
+}
+
+/* ── Hidden Utility ───────────────────────────────────────────── */
+.hidden {
+  display: none !important;
+}

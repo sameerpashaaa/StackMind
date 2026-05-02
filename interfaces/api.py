@@ -22,8 +22,24 @@ from config.settings import Settings
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Load settings
-settings = Settings()
+# Lazy-loaded globals (deferred so load_dotenv() runs first)
+_settings = None
+_agent = None
+
+def _get_settings():
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+    return _settings
+
+def _get_agent():
+    """Get the agent instance, initializing lazily on first call"""
+    global _agent
+    if hasattr(app.state, 'agent') and app.state.agent is not None:
+        return app.state.agent
+    if _agent is None:
+        _agent = ProblemSolverAgent(settings=_get_settings())
+    return _agent
 
 # Create FastAPI app
 app = FastAPI(
@@ -32,22 +48,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware
+# Add CORS middleware at module level (must be before app starts)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.api.cors_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Create a global agent instance
-agent = ProblemSolverAgent(settings=settings)
-
-# Helper function to get the agent instance
+# Alias for all route handlers
 def get_agent():
-    """Get the agent instance from app.state if available, otherwise use the global agent"""
-    return getattr(app.state, 'agent', agent)
+    return _get_agent()
 
 # Define request and response models
 class TextInput(BaseModel):
@@ -131,12 +143,9 @@ async def solve_text_problem(input_data: TextInput):
         update_session_activity(session_id)
         
         # Process the text input
-        result = get_agent().process_input(
-            input_text=input_data.text,
-            input_type="text",
-            domain_hint=input_data.domain,
-            options=input_data.options or {},
-            session_id=session_id
+        result = get_agent().solve_problem(
+            input_data=input_data.text,
+            input_type="text"
         )
         
         # Save the solution to the session
@@ -188,12 +197,9 @@ async def solve_image_problem(input_data: ImageInput):
         
         try:
             # Process the image input
-            result = get_agent().process_input(
-                input_image=temp_file_path,
-                input_type="image",
-                domain_hint=input_data.domain,
-                options=input_data.options or {},
-                session_id=session_id
+            result = get_agent().solve_problem(
+                input_data=temp_file_path,
+                input_type="image"
             )
         finally:
             # Clean up the temporary file
@@ -249,12 +255,9 @@ async def solve_voice_problem(input_data: VoiceInput):
         
         try:
             # Process the voice input
-            result = get_agent().process_input(
-                input_audio=temp_file_path,
-                input_type="voice",
-                domain_hint=input_data.domain,
-                options=input_data.options or {},
-                session_id=session_id
+            result = get_agent().solve_problem(
+                input_data=temp_file_path,
+                input_type="voice"
             )
         finally:
             # Clean up the temporary file
@@ -302,12 +305,9 @@ async def solve_code_problem(input_data: CodeInput):
         if input_data.language:
             options["language"] = input_data.language
             
-        result = get_agent().process_input(
-            input_text=input_data.code,
-            input_type="code",
-            domain_hint="code",
-            options=options,
-            session_id=session_id
+        result = get_agent().solve_problem(
+            input_data=input_data.code,
+            input_type="code"
         )
         
         # Save the solution to the session
@@ -541,13 +541,12 @@ def start_api_server(agent=None, settings=None, host: str = "0.0.0.0", port: int
     """
     # If agent is provided, use it instead of the global one
     if agent is not None:
-        global app
         app.state.agent = agent
     
-    # If settings are provided, update the global settings
+    # If settings are provided, update the lazy-loaded settings
     if settings is not None:
-        # Update the global settings
-        globals()['settings'] = settings
+        global _settings
+        _settings = settings
     
     uvicorn.run("interfaces.api:app", host=host, port=port, reload=False)
 

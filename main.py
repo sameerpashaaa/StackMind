@@ -48,16 +48,17 @@ def main():
     logger.info(f"Loaded configuration profile: {args.config}")
     
     # Check for API keys based on the selected LLM provider
-    if settings.llm_provider == "mistral":
+    llm_provider = settings.get("llm", "provider")
+    if llm_provider == "mistral":
         if not os.getenv("MISTRAL_API_KEY"):
             logger.warning("MISTRAL_API_KEY not found in environment variables. Please set it in .env file.")
             print("Warning: MISTRAL_API_KEY not found. Please set it in .env file or export it as an environment variable.")
-    elif settings.llm_provider == "openai":
+    elif llm_provider == "openai":
         if not os.getenv("OPENAI_API_KEY"):
             logger.warning("OPENAI_API_KEY not found in environment variables. Please set it in .env file.")
             print("Warning: OPENAI_API_KEY not found. Please set it in .env file or export it as an environment variable.")
     else:
-        logger.warning(f"No API key check implemented for LLM provider: {settings.llm_provider}")
+        logger.warning(f"No API key check implemented for LLM provider: {llm_provider}")
     
     # Initialize the agent
     agent = ProblemSolverAgent(settings=settings)

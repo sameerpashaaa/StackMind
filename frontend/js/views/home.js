@@ -1,0 +1,317 @@
+/**
+ * Home View — Problem Input Workspace
+ */
+import { api } from '../api.js';
+import { store } from '../state.js';
+
+export function renderHome(container) {
+  container.innerHTML = `
+    <div class="page">
+      <div class="home-workspace">
+        <div class="home-hero">
+          <h1 class="page-header__title">What are we solving today?</h1>
+          <p class="page-header__subtitle">System ready. Enter your constraints below.</p>
+        </div>
+
+        <!-- Input Mode Selector -->
+        <div class="input-modes" id="input-modes">
+          <button class="input-mode active" data-mode="text">
+            <span class="material-symbols-outlined">edit_note</span>
+            Text
+          </button>
+          <button class="input-mode" data-mode="image">
+            <span class="material-symbols-outlined">image</span>
+            Image
+          </button>
+          <button class="input-mode" data-mode="code">
+            <span class="material-symbols-outlined">code</span>
+            Code
+          </button>
+          <button class="input-mode" data-mode="voice">
+            <span class="material-symbols-outlined">mic</span>
+            Voice
+          </button>
+        </div>
+
+        <!-- Text Input -->
+        <div class="input-panel" id="text-panel">
+          <textarea
+            id="problem-input"
+            class="input input--lg problem-textarea"
+            placeholder="Describe your problem in detail. The more context you provide, the better the solution..."
+            rows="8"
+          ></textarea>
+
+          <div class="input-toolbar">
+            <div class="input-toolbar__left">
+              <div class="domain-selector">
+                <span class="text-label">Domain</span>
+                <select id="domain-select" class="select">
+                  <option value="">Auto-detect</option>
+                  <option value="math">Mathematics</option>
+                  <option value="code">Code & Programming</option>
+                  <option value="science">Science</option>
+                  <option value="general">General</option>
+                </select>
+              </div>
+            </div>
+            <div class="input-toolbar__right">
+              <span id="char-count" class="text-label">0 characters</span>
+              <button id="solve-btn" class="btn btn--primary btn--lg">
+                <span class="material-symbols-outlined">psychology</span>
+                Solve Problem
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Image Upload Panel -->
+        <div class="input-panel hidden" id="image-panel">
+          <div class="upload-zone" id="image-upload-zone">
+            <span class="material-symbols-outlined upload-zone__icon">cloud_upload</span>
+            <p class="upload-zone__text">
+              <strong>Click to upload</strong> or drag and drop<br/>
+              PNG, JPG, GIF up to 10MB
+            </p>
+            <input type="file" id="image-file-input" accept="image/*" hidden />
+          </div>
+          <div id="image-preview-area" class="hidden">
+            <img id="image-preview" style="max-height: 300px; border-radius: var(--radius-lg); border: 1px solid var(--color-border);" />
+            <button id="clear-image" class="btn btn--ghost btn--sm" style="margin-top: var(--space-sm);">
+              <span class="material-symbols-outlined">close</span> Remove
+            </button>
+          </div>
+          <button id="solve-image-btn" class="btn btn--primary btn--lg" disabled style="margin-top: var(--space-md);">
+            <span class="material-symbols-outlined">psychology</span>
+            Analyze Image
+          </button>
+        </div>
+
+        <!-- Code Input Panel -->
+        <div class="input-panel hidden" id="code-panel">
+          <div class="code-input-header">
+            <select id="code-lang-select" class="select" style="width: 180px;">
+              <option value="">Auto-detect language</option>
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript</option>
+              <option value="java">Java</option>
+              <option value="c">C</option>
+              <option value="cpp">C++</option>
+              <option value="go">Go</option>
+              <option value="ruby">Ruby</option>
+            </select>
+          </div>
+          <textarea
+            id="code-input"
+            class="input code-textarea"
+            placeholder="Paste your code here..."
+            rows="12"
+            style="font-family: var(--font-code); font-size: var(--text-code-size);"
+          ></textarea>
+          <button id="solve-code-btn" class="btn btn--primary btn--lg" style="margin-top: var(--space-md);">
+            <span class="material-symbols-outlined">psychology</span>
+            Analyze Code
+          </button>
+        </div>
+
+        <!-- Voice Input Panel -->
+        <div class="input-panel hidden" id="voice-panel">
+          <div class="voice-input-area">
+            <button id="record-btn" class="voice-record-btn">
+              <span class="material-symbols-outlined">mic</span>
+            </button>
+            <p class="text-muted" style="margin-top: var(--space-md);">Click to start recording</p>
+          </div>
+        </div>
+
+        <!-- Loading State -->
+        <div class="solve-loading hidden" id="solve-loading">
+          <div class="loading-overlay">
+            <div class="spinner spinner--lg spinner--accent"></div>
+            <p class="loading-overlay__text" id="loading-status">Analyzing problem...</p>
+            <div class="loading-steps" id="loading-steps">
+              <div class="loading-step active">
+                <span class="chip chip--accent"><span class="chip__dot chip__dot--processing"></span> Processing</span>
+                Input Analysis
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Session Link -->
+        <div class="home-footer">
+          <a href="#/sessions" class="btn btn--ghost">
+            View Session History
+            <span class="material-symbols-outlined">arrow_forward</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // ── Event Handlers ──────────────────────────────────────────
+  const problemInput = container.querySelector('#problem-input');
+  const solveBtn = container.querySelector('#solve-btn');
+  const charCount = container.querySelector('#char-count');
+  const domainSelect = container.querySelector('#domain-select');
+  const inputModes = container.querySelector('#input-modes');
+  const solveLoading = container.querySelector('#solve-loading');
+
+  // Character count
+  problemInput.addEventListener('input', () => {
+    charCount.textContent = `${problemInput.value.length} characters`;
+  });
+
+  // Input mode switching
+  inputModes.addEventListener('click', (e) => {
+    const modeBtn = e.target.closest('.input-mode');
+    if (!modeBtn) return;
+    const mode = modeBtn.dataset.mode;
+
+    inputModes.querySelectorAll('.input-mode').forEach(b => b.classList.remove('active'));
+    modeBtn.classList.add('active');
+
+    container.querySelectorAll('.input-panel').forEach(p => p.classList.add('hidden'));
+    container.querySelector(`#${mode}-panel`).classList.remove('hidden');
+  });
+
+  // Image upload
+  const imageZone = container.querySelector('#image-upload-zone');
+  const imageFileInput = container.querySelector('#image-file-input');
+  const imagePreviewArea = container.querySelector('#image-preview-area');
+  const imagePreview = container.querySelector('#image-preview');
+  const solveImageBtn = container.querySelector('#solve-image-btn');
+  const clearImage = container.querySelector('#clear-image');
+
+  let selectedImageBase64 = null;
+
+  imageZone.addEventListener('click', () => imageFileInput.click());
+  imageZone.addEventListener('dragover', (e) => { e.preventDefault(); imageZone.classList.add('dragover'); });
+  imageZone.addEventListener('dragleave', () => imageZone.classList.remove('dragover'));
+  imageZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    imageZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) handleImageFile(file);
+  });
+
+  imageFileInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) handleImageFile(e.target.files[0]);
+  });
+
+  clearImage.addEventListener('click', () => {
+    selectedImageBase64 = null;
+    imagePreviewArea.classList.add('hidden');
+    imageZone.classList.remove('hidden');
+    solveImageBtn.disabled = true;
+  });
+
+  function handleImageFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      selectedImageBase64 = dataUrl.split(',')[1];
+      imagePreview.src = dataUrl;
+      imagePreviewArea.classList.remove('hidden');
+      imageZone.classList.add('hidden');
+      solveImageBtn.disabled = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Solve text problem
+  solveBtn.addEventListener('click', async () => {
+    const text = problemInput.value.trim();
+    if (!text) return;
+
+    showLoading();
+    try {
+      const result = await api.solveText(text, null, domainSelect.value || null);
+      store.cacheSolution(result.solution_id, result);
+      store.update({
+        currentSessionId: result.session_id,
+        currentSolutionId: result.solution_id,
+      });
+      window.location.hash = `/solution/${result.session_id}/${result.solution_id}`;
+    } catch (err) {
+      hideLoading();
+      showToast(`Error: ${err.message}`, 'error');
+    }
+  });
+
+  // Solve image
+  solveImageBtn.addEventListener('click', async () => {
+    if (!selectedImageBase64) return;
+    showLoading();
+    try {
+      const result = await api.solveImage(selectedImageBase64);
+      store.cacheSolution(result.solution_id, result);
+      store.update({
+        currentSessionId: result.session_id,
+        currentSolutionId: result.solution_id,
+      });
+      window.location.hash = `/solution/${result.session_id}/${result.solution_id}`;
+    } catch (err) {
+      hideLoading();
+      showToast(`Error: ${err.message}`, 'error');
+    }
+  });
+
+  // Solve code
+  const codeInput = container.querySelector('#code-input');
+  const codeBtn = container.querySelector('#solve-code-btn');
+  const codeLang = container.querySelector('#code-lang-select');
+
+  codeBtn.addEventListener('click', async () => {
+    const code = codeInput.value.trim();
+    if (!code) return;
+    showLoading();
+    try {
+      const result = await api.solveCode(code, codeLang.value || null);
+      store.cacheSolution(result.solution_id, result);
+      store.update({
+        currentSessionId: result.session_id,
+        currentSolutionId: result.solution_id,
+      });
+      window.location.hash = `/solution/${result.session_id}/${result.solution_id}`;
+    } catch (err) {
+      hideLoading();
+      showToast(`Error: ${err.message}`, 'error');
+    }
+  });
+
+  // Keyboard shortcut: Ctrl+Enter to solve
+  container.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      const activeMode = container.querySelector('.input-mode.active')?.dataset.mode;
+      if (activeMode === 'text') solveBtn.click();
+      else if (activeMode === 'code') codeBtn.click();
+      else if (activeMode === 'image') solveImageBtn.click();
+    }
+  });
+
+  function showLoading() {
+    container.querySelectorAll('.input-panel, .input-modes, .home-footer').forEach(el => el.classList.add('hidden'));
+    solveLoading.classList.remove('hidden');
+  }
+
+  function hideLoading() {
+    solveLoading.classList.add('hidden');
+    container.querySelectorAll('.input-panel, .input-modes, .home-footer').forEach(el => el.classList.remove('hidden'));
+    // Re-show only active panel
+    const activeMode = container.querySelector('.input-mode.active')?.dataset.mode || 'text';
+    container.querySelectorAll('.input-panel').forEach(p => p.classList.add('hidden'));
+    container.querySelector(`#${activeMode}-panel`)?.classList.remove('hidden');
+  }
+
+  // Focus the input
+  problemInput.focus();
+}
+
+function showToast(message, type = '') {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type ? 'toast--' + type : ''}`;
+  toast.innerHTML = `<span class="material-symbols-outlined">${type === 'error' ? 'error' : 'check_circle'}</span> ${message}`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}

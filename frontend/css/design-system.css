@@ -1,0 +1,265 @@
+/* ================================================================
+   StackMind Design System
+   Based on Stitch "Technical Precision" design tokens
+   ================================================================ */
+
+:root {
+  /* ── Color Palette ────────────────────────────────────────────── */
+  /* Background Tones */
+  --color-bg:                   #FAFAFA;
+  --color-surface:              #FFFFFF;
+  --color-surface-dim:          #DDD9D9;
+  --color-surface-container:    #F1EDED;
+  --color-surface-container-low:#F7F3F2;
+  --color-surface-container-high:#EBE7E7;
+  --color-surface-highest:      #E5E2E1;
+
+  /* Foreground / Text */
+  --color-on-bg:                #1C1B1C;
+  --color-on-surface:           #18181B;
+  --color-on-surface-variant:   #71717A;
+  --color-on-surface-muted:     #A1A1AA;
+
+  /* Primary */
+  --color-primary:              #18181B;
+  --color-on-primary:           #FFFFFF;
+  --color-primary-container:    #1B1B1E;
+
+  /* Accent (interactive) */
+  --color-accent:               #3B82F6;
+  --color-accent-hover:         #2563EB;
+  --color-accent-light:         #EFF6FF;
+
+  /* Borders */
+  --color-border:               #E5E5E5;
+  --color-border-hover:         #D4D4D8;
+  --color-border-focus:         #3B82F6;
+
+  /* Semantic */
+  --color-success:              #22C55E;
+  --color-success-light:        #F0FDF4;
+  --color-warning:              #F59E0B;
+  --color-warning-light:        #FFFBEB;
+  --color-error:                #BA1A1A;
+  --color-error-light:          #FEF2F2;
+  --color-info:                 #3B82F6;
+  --color-info-light:           #EFF6FF;
+
+  /* ── Typography ───────────────────────────────────────────────── */
+  --font-ui:                    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-code:                  'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Heading */
+  --text-h1-size:               32px;
+  --text-h1-weight:             600;
+  --text-h1-line:               40px;
+  --text-h1-tracking:           -0.02em;
+
+  --text-h2-size:               24px;
+  --text-h2-weight:             600;
+  --text-h2-line:               32px;
+  --text-h2-tracking:           -0.01em;
+
+  --text-h3-size:               18px;
+  --text-h3-weight:             600;
+  --text-h3-line:               28px;
+  --text-h3-tracking:           0;
+
+  /* Body */
+  --text-body-lg-size:          16px;
+  --text-body-lg-weight:        400;
+  --text-body-lg-line:          24px;
+
+  --text-body-sm-size:          14px;
+  --text-body-sm-weight:        400;
+  --text-body-sm-line:          20px;
+
+  /* Label */
+  --text-label-size:            12px;
+  --text-label-weight:          500;
+  --text-label-line:            16px;
+  --text-label-tracking:        0.02em;
+
+  /* Code */
+  --text-code-size:             13px;
+  --text-code-weight:           400;
+  --text-code-line:             20px;
+
+  /* ── Spacing (4px base unit) ──────────────────────────────────── */
+  --space-unit:                 4px;
+  --space-xs:                   4px;
+  --space-sm:                   8px;
+  --space-md:                   16px;
+  --space-lg:                   24px;
+  --space-xl:                   32px;
+  --space-2xl:                  48px;
+  --space-3xl:                  64px;
+  --space-gutter:               24px;
+  --container-max:              1280px;
+
+  /* ── Shape ────────────────────────────────────────────────────── */
+  --radius-xs:                  2px;
+  --radius-sm:                  4px;
+  --radius-md:                  6px;
+  --radius-lg:                  8px;
+  --radius-xl:                  12px;
+  --radius-full:                9999px;
+
+  /* ── Elevation ────────────────────────────────────────────────── */
+  --shadow-sm:                  0 1px 2px rgba(0,0,0,0.03);
+  --shadow-md:                  0 1px 3px rgba(0,0,0,0.04);
+  --shadow-lg:                  0 4px 12px rgba(0,0,0,0.06);
+  --shadow-xl:                  0 8px 24px rgba(0,0,0,0.08);
+
+  /* ── Transitions ──────────────────────────────────────────────── */
+  --transition-fast:            120ms ease;
+  --transition-base:            200ms ease;
+  --transition-slow:            300ms ease;
+
+  /* ── Sidebar ──────────────────────────────────────────────────── */
+  --sidebar-width:              240px;
+  --sidebar-collapsed-width:    64px;
+}
+
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-body-sm-size);
+  font-weight: var(--text-body-sm-weight);
+  line-height: var(--text-body-sm-line);
+  color: var(--color-on-surface);
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* ── Typography Utilities ─────────────────────────────────────── */
+.text-h1 {
+  font-size: var(--text-h1-size);
+  font-weight: var(--text-h1-weight);
+  line-height: var(--text-h1-line);
+  letter-spacing: var(--text-h1-tracking);
+  color: var(--color-on-surface);
+}
+
+.text-h2 {
+  font-size: var(--text-h2-size);
+  font-weight: var(--text-h2-weight);
+  line-height: var(--text-h2-line);
+  letter-spacing: var(--text-h2-tracking);
+  color: var(--color-on-surface);
+}
+
+.text-h3 {
+  font-size: var(--text-h3-size);
+  font-weight: var(--text-h3-weight);
+  line-height: var(--text-h3-line);
+  color: var(--color-on-surface);
+}
+
+.text-body-lg {
+  font-size: var(--text-body-lg-size);
+  font-weight: var(--text-body-lg-weight);
+  line-height: var(--text-body-lg-line);
+}
+
+.text-body-sm {
+  font-size: var(--text-body-sm-size);
+  font-weight: var(--text-body-sm-weight);
+  line-height: var(--text-body-sm-line);
+}
+
+.text-label {
+  font-size: var(--text-label-size);
+  font-weight: var(--text-label-weight);
+  line-height: var(--text-label-line);
+  letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase;
+  color: var(--color-on-surface-variant);
+}
+
+.text-code {
+  font-family: var(--font-code);
+  font-size: var(--text-code-size);
+  font-weight: var(--text-code-weight);
+  line-height: var(--text-code-line);
+}
+
+.text-muted {
+  color: var(--color-on-surface-variant);
+}
+
+.text-accent {
+  color: var(--color-accent);
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+/* ── Focus Ring ───────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Selection ────────────────────────────────────────────────── */
+::selection {
+  background: var(--color-accent);
+  color: var(--color-on-primary);
+}

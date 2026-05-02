@@ -6,7 +6,13 @@ import json
 import uuid
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
-import readline  # For command history
+try:
+    import readline  # For command history (Unix)
+except ImportError:
+    try:
+        import pyreadline3 as readline  # For command history (Windows)
+    except ImportError:
+        readline = None  # No command history support
 import colorama
 from colorama import Fore, Style
 import tempfile
@@ -38,6 +44,8 @@ class ProblemSolverCLI:
     
     def _load_history(self):
         """Load command history"""
+        if readline is None:
+            return
         try:
             if os.path.exists(self.history_file):
                 readline.read_history_file(self.history_file)
@@ -47,6 +55,8 @@ class ProblemSolverCLI:
     
     def _save_history(self):
         """Save command history"""
+        if readline is None:
+            return
         try:
             readline.write_history_file(self.history_file)
         except Exception as e:
@@ -182,12 +192,10 @@ class ProblemSolverCLI:
     def _process_text_input(self, text: str, domain_hint: Optional[str] = None):
         """Process text input and display the result"""
         try:
-            # Process the input
-            result = self.agent.process_input(
-                input_text=text,
-                input_type="text",
-                domain_hint=domain_hint,
-                session_id=self.session_id
+            # Process the input through the agent's solve pipeline
+            result = self.agent.solve_problem(
+                input_data=text,
+                input_type="text"
             )
             
             # Save the solution
@@ -219,11 +227,9 @@ class ProblemSolverCLI:
             print(f"{Fore.YELLOW}Processing image...{Style.RESET_ALL}")
             
             # Process the image
-            result = self.agent.process_input(
-                input_image=file_path,
-                input_type="image",
-                domain_hint=domain_hint,
-                session_id=self.session_id
+            result = self.agent.solve_problem(
+                input_data=file_path,
+                input_type="image"
             )
             
             # Save the solution
@@ -255,11 +261,9 @@ class ProblemSolverCLI:
             print(f"{Fore.YELLOW}Processing voice recording...{Style.RESET_ALL}")
             
             # Process the voice recording
-            result = self.agent.process_input(
-                input_audio=file_path,
-                input_type="voice",
-                domain_hint=domain_hint,
-                session_id=self.session_id
+            result = self.agent.solve_problem(
+                input_data=file_path,
+                input_type="voice"
             )
             
             # Save the solution
@@ -295,11 +299,9 @@ class ProblemSolverCLI:
             print(f"{Fore.YELLOW}Processing code...{Style.RESET_ALL}")
             
             # Process the code
-            result = self.agent.process_input(
-                input_text=code,
-                input_type="code",
-                domain_hint="code",
-                session_id=self.session_id
+            result = self.agent.solve_problem(
+                input_data=code,
+                input_type="code"
             )
             
             # Save the solution

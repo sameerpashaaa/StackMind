@@ -18,7 +18,8 @@ class Settings:
             "host": "127.0.0.1",
             "port": 8000,
             "debug": False,
-            "enable_docs": True
+            "enable_docs": True,
+            "cors_origins": ["*"]
         },
         "llm": {
             "provider": "mistral",
