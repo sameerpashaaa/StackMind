@@ -3,7 +3,17 @@
  * All fetch calls to the FastAPI backend.
  */
 
-const API_BASE = 'http://localhost:8000';
+/**
+ * API base URL — resolved at runtime:
+ *  1. window.__STACKMIND_API_BASE (injected by deployment)
+ *  2. In development, Vite proxies /solve, /feedback, /sessions, /health
+ *     to localhost:8000, so we can use '' (same origin).
+ *  3. Fallback to localhost:8000 for direct API testing.
+ */
+const API_BASE =
+  window.__STACKMIND_API_BASE ||
+  (import.meta.env?.DEV ? '' : '') ||
+  'http://localhost:8000';
 
 class ApiClient {
   constructor(baseUrl = API_BASE) {

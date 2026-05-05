@@ -1,0 +1,42 @@
+{
+    "llm": {
+        "provider": "mistral",
+        "model_name": "mistral-large-latest",
+        "temperature": 0.3,
+        "max_tokens": 4000
+    },
+    "api": {
+        "host": "0.0.0.0",
+        "port": 8000,
+        "workers": 4,
+        "cors_origins": [],
+        "docs_enabled": false
+    },
+    "memory": {
+        "persistence": true,
+        "storage_path": "/app/data/memory",
+        "max_session_memory": 100,
+        "max_long_term_memory": 1000
+    },
+    "logging": {
+        "level": "WARNING",
+        "format": "json",
+        "file": "/app/logs/stackmind.log"
+    },
+    "security": {
+        "rate_limit_per_minute": 30,
+        "max_input_length": 50000,
+        "max_file_size_mb": 10,
+        "allowed_code_languages": ["python", "javascript", "typescript"]
+    },
+    "processors": {
+        "voice": {
+            "model_size": "base",
+            "enabled": true
+        },
+        "image": {
+            "max_resolution": [2048, 2048],
+            "enabled": true
+        }
+    }
+}

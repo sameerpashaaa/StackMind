@@ -118,9 +118,14 @@ export function renderHome(container) {
         <div class="input-panel hidden" id="voice-panel">
           <div class="voice-input-area">
             <button id="record-btn" class="voice-record-btn">
-              <span class="material-symbols-outlined">mic</span>
+              <span class="material-symbols-outlined" id="record-icon">mic</span>
             </button>
-            <p class="text-muted" style="margin-top: var(--space-md);">Click to start recording</p>
+            <p class="voice-status" id="voice-status">Click to start recording</p>
+            <p class="voice-timer hidden" id="voice-timer">00:00</p>
+            <div id="voice-transcription-preview" class="voice-transcription-preview hidden">
+              <p class="text-label">Transcription Preview</p>
+              <p id="voice-transcription-text" class="voice-transcription-text"></p>
+            </div>
           </div>
         </div>
 
@@ -279,6 +284,109 @@ export function renderHome(container) {
       showToast(`Error: ${err.message}`, 'error');
     }
   });
+
+  // ── Voice Recording ───────────────────────────────────────────
+  const recordBtn = container.querySelector('#record-btn');
+  const recordIcon = container.querySelector('#record-icon');
+  const voiceStatus = container.querySelector('#voice-status');
+  const voiceTimer = container.querySelector('#voice-timer');
+  const voiceTranscriptionPreview = container.querySelector('#voice-transcription-preview');
+  const voiceTranscriptionText = container.querySelector('#voice-transcription-text');
+
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let recordingStartTime = null;
+  let timerInterval = null;
+
+  recordBtn.addEventListener('click', async () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      // Stop recording
+      mediaRecorder.stop();
+      return;
+    }
+
+    // Request microphone access
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+
+      mediaRecorder.onstart = () => {
+        recordBtn.classList.add('recording');
+        recordIcon.textContent = 'stop';
+        voiceStatus.textContent = 'Recording... Click to stop';
+        voiceTimer.classList.remove('hidden');
+        voiceTranscriptionPreview.classList.add('hidden');
+        recordingStartTime = Date.now();
+        timerInterval = setInterval(updateTimer, 1000);
+      };
+
+      mediaRecorder.onstop = async () => {
+        clearInterval(timerInterval);
+        recordBtn.classList.remove('recording');
+        recordIcon.textContent = 'mic';
+        voiceStatus.textContent = 'Processing audio...';
+        voiceTimer.classList.add('hidden');
+
+        // Stop all mic tracks
+        stream.getTracks().forEach(t => t.stop());
+
+        // Convert to blob and then to base64
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const base64Audio = await blobToBase64(audioBlob);
+
+        // Send to backend
+        showLoading();
+        try {
+          const result = await api.solveVoice(base64Audio);
+          store.cacheSolution(result.solution_id, result);
+          store.update({
+            currentSessionId: result.session_id,
+            currentSolutionId: result.solution_id,
+          });
+          window.location.hash = `/solution/${result.session_id}/${result.solution_id}`;
+        } catch (err) {
+          hideLoading();
+          voiceStatus.textContent = 'Click to start recording';
+          showToast(`Error: ${err.message}`, 'error');
+        }
+      };
+
+      mediaRecorder.start(250); // Collect data every 250ms
+
+    } catch (err) {
+      if (err.name === 'NotAllowedError') {
+        showToast('Microphone access denied. Please allow microphone access in your browser settings.', 'error');
+      } else {
+        showToast(`Microphone error: ${err.message}`, 'error');
+      }
+      voiceStatus.textContent = 'Click to start recording';
+    }
+  });
+
+  function updateTimer() {
+    const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+    const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const secs = String(elapsed % 60).padStart(2, '0');
+    voiceTimer.textContent = `${mins}:${secs}`;
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result;
+        resolve(dataUrl.split(',')[1]); // Strip the data:audio/webm;base64, prefix
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
 
   // Keyboard shortcut: Ctrl+Enter to solve
   container.addEventListener('keydown', (e) => {

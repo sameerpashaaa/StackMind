@@ -6,6 +6,7 @@ export default defineConfig({
     port: 3000,
     open: true,
     proxy: {
+      '/api': 'http://localhost:8000',
       '/solve': 'http://localhost:8000',
       '/feedback': 'http://localhost:8000',
       '/sessions': 'http://localhost:8000',

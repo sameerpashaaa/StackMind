@@ -15,10 +15,10 @@ Ensure you have installed the dependencies and set up your `.env` file as descri
 The CLI is the easiest way to interact with StackMind locally. Start it by running:
 
 ```bash
-python main.py --mode cli
+python main.py
 ```
 
-You will see the interactive prompt `StackMind> `.
+You will see the interactive prompt `> `.
 
 ### Text-Based Problem Solving
 
@@ -26,14 +26,14 @@ Try asking a complex reasoning question that requires multi-step logic.
 
 **Example 1: Math and Logic**
 ```
-StackMind> If a train travels 60 mph for 2 hours, then 80 mph for 1 hour, what is its average speed?
+> If a train travels 60 mph for 2 hours, then 80 mph for 1 hour, what is its average speed?
 ```
 *Notice how StackMind breaks this into finding the total distance and total time before calculating the final answer.*
 
 **Example 2: Code Debugging**
 ```
-StackMind> /domain code
-StackMind> Debug this Python function:
+> domain code
+> Debug this Python function:
 def fibonacci(n):
     if n <= 0: return []
     elif n == 1: return [0]
@@ -50,26 +50,26 @@ StackMind supports processing different types of input files directly from the C
 
 **Image Processing:**
 ```
-StackMind> /image path/to/diagram.png Explain what this architecture diagram represents.
+> image path/to/diagram.png
 ```
 
 **Voice Processing:**
 ```
-StackMind> /voice path/to/recording.mp3 Please summarize the key points from this audio clip.
+> voice path/to/recording.mp3
 ```
 
 **Code Analysis:**
 ```
-StackMind> /code path/to/script.py Optimize this code for better performance.
+> code path/to/script.py
 ```
 
 ### CLI Commands
 
-Type `/help` to see all available commands:
-- `/history` - View your solution history
-- `/clear` - Clear the current session
-- `/domain [name]` - Set a specific domain hint (e.g., math, code, science)
-- `/exit` or `quit` - Exit the CLI
+Type `help` to see all available commands:
+- `history` - View your solution history
+- `clear` - Clear the current session
+- `domain [name]` - Set a specific domain hint (e.g., math, code, science)
+- `exit` or `quit` - Exit the CLI
 
 ---
 
@@ -78,7 +78,7 @@ Type `/help` to see all available commands:
 For integrating StackMind into other applications, use the REST API. Start the server:
 
 ```bash
-python main.py --mode api
+python main.py --api
 ```
 
 The API runs on `http://127.0.0.1:8000` by default. You can view the interactive documentation at `http://127.0.0.1:8000/docs`.

@@ -1,5 +1,10 @@
-import logging
 import os
+# NOTE: KMP_DUPLICATE_LIB_OK is set conditionally in start_api_server() for dev only
+
+from dotenv import load_dotenv
+load_dotenv()  # Load .env variables (MISTRAL_API_KEY, etc.)
+
+import logging
 import json
 import base64
 import tempfile
@@ -41,17 +46,27 @@ def _get_agent():
         _agent = ProblemSolverAgent(settings=_get_settings())
     return _agent
 
+# ── Structured error response ────────────────────────────────────
+class ErrorResponse(BaseModel):
+    error: str = Field(..., description="Error type/code")
+    detail: str = Field(..., description="Human-readable error message")
+    request_id: Optional[str] = Field(None, description="Request tracking ID")
+
 # Create FastAPI app
 app = FastAPI(
-    title="AI Problem Solver API",
-    description="API for the AI Problem Solver - A multi-domain problem-solving system",
-    version="1.0.0"
+    title="StackMind API",
+    description="StackMind — Multi-step reasoning and problem-solving AI agent API",
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 
-# Add CORS middleware at module level (must be before app starts)
+# CORS — configurable via environment
+_cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -130,12 +145,30 @@ def save_solution_to_session(session_id: str, solution_data: Dict[str, Any]) -> 
     if session_id in active_sessions:
         active_sessions[session_id]["solutions"].append(solution_data)
 
+def normalize_reasoning_steps(steps) -> Optional[List[str]]:
+    """Convert reasoning steps from List[Dict] to List[str] for the API response."""
+    if not steps:
+        return None
+    result = []
+    for step in steps:
+        if isinstance(step, dict):
+            result.append(step.get("content", str(step)))
+        else:
+            result.append(str(step))
+    return result
+
 # API endpoints
 @app.get("/")
 async def root():
-    return {"message": "AI Problem Solver API is running"}
+    return {"message": "StackMind API is running", "version": "1.0.0", "docs": "/api/docs"}
 
-@app.post("/solve/text", response_model=SolverResponse)
+# ── API v1 Router ────────────────────────────────────────────────
+from fastapi import APIRouter
+v1 = APIRouter(prefix="/api/v1")
+
+# Legacy route (backwards compat) + versioned route
+@app.post("/solve/text", response_model=SolverResponse, include_in_schema=False)
+@v1.post("/solve/text", response_model=SolverResponse, tags=["Solve"])
 async def solve_text_problem(input_data: TextInput):
     """Solve a problem from text input"""
     try:
@@ -165,7 +198,7 @@ async def solve_text_problem(input_data: TextInput):
             "problem_domain": result["domain"],
             "solution": result["solution"],
             "explanation": result.get("explanation"),
-            "reasoning_steps": result.get("reasoning_steps"),
+            "reasoning_steps": normalize_reasoning_steps(result.get("reasoning_steps")),
             "confidence": result.get("confidence", 0.0),
             "alternative_solutions": result.get("alternative_solutions"),
             "metadata": result.get("metadata")
@@ -177,7 +210,8 @@ async def solve_text_problem(input_data: TextInput):
         logger.error(f"Error processing text input: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing text input: {str(e)}")
 
-@app.post("/solve/image", response_model=SolverResponse)
+@app.post("/solve/image", response_model=SolverResponse, include_in_schema=False)
+@v1.post("/solve/image", response_model=SolverResponse, tags=["Solve"])
 async def solve_image_problem(input_data: ImageInput):
     """Solve a problem from image input"""
     try:
@@ -223,7 +257,7 @@ async def solve_image_problem(input_data: ImageInput):
             "problem_domain": result["domain"],
             "solution": result["solution"],
             "explanation": result.get("explanation"),
-            "reasoning_steps": result.get("reasoning_steps"),
+            "reasoning_steps": normalize_reasoning_steps(result.get("reasoning_steps")),
             "confidence": result.get("confidence", 0.0),
             "alternative_solutions": result.get("alternative_solutions"),
             "metadata": result.get("metadata")
@@ -235,7 +269,8 @@ async def solve_image_problem(input_data: ImageInput):
         logger.error(f"Error processing image input: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing image input: {str(e)}")
 
-@app.post("/solve/voice", response_model=SolverResponse)
+@app.post("/solve/voice", response_model=SolverResponse, include_in_schema=False)
+@v1.post("/solve/voice", response_model=SolverResponse, tags=["Solve"])
 async def solve_voice_problem(input_data: VoiceInput):
     """Solve a problem from voice input"""
     try:
@@ -281,7 +316,7 @@ async def solve_voice_problem(input_data: VoiceInput):
             "problem_domain": result["domain"],
             "solution": result["solution"],
             "explanation": result.get("explanation"),
-            "reasoning_steps": result.get("reasoning_steps"),
+            "reasoning_steps": normalize_reasoning_steps(result.get("reasoning_steps")),
             "confidence": result.get("confidence", 0.0),
             "alternative_solutions": result.get("alternative_solutions"),
             "metadata": result.get("metadata")
@@ -293,7 +328,8 @@ async def solve_voice_problem(input_data: VoiceInput):
         logger.error(f"Error processing voice input: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing voice input: {str(e)}")
 
-@app.post("/solve/code", response_model=SolverResponse)
+@app.post("/solve/code", response_model=SolverResponse, include_in_schema=False)
+@v1.post("/solve/code", response_model=SolverResponse, tags=["Solve"])
 async def solve_code_problem(input_data: CodeInput):
     """Solve a problem from code input"""
     try:
@@ -327,7 +363,7 @@ async def solve_code_problem(input_data: CodeInput):
             "problem_domain": result["domain"],
             "solution": result["solution"],
             "explanation": result.get("explanation"),
-            "reasoning_steps": result.get("reasoning_steps"),
+            "reasoning_steps": normalize_reasoning_steps(result.get("reasoning_steps")),
             "confidence": result.get("confidence", 0.0),
             "alternative_solutions": result.get("alternative_solutions"),
             "metadata": result.get("metadata")
@@ -339,7 +375,8 @@ async def solve_code_problem(input_data: CodeInput):
         logger.error(f"Error processing code input: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing code input: {str(e)}")
 
-@app.post("/feedback", response_model=Dict[str, Any])
+@app.post("/feedback", response_model=Dict[str, Any], include_in_schema=False)
+@v1.post("/feedback", response_model=Dict[str, Any], tags=["Feedback"])
 async def provide_feedback(input_data: FeedbackInput):
     """Provide feedback on a solution"""
     try:
@@ -382,7 +419,8 @@ async def provide_feedback(input_data: FeedbackInput):
         logger.error(f"Error processing feedback: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing feedback: {str(e)}")
 
-@app.get("/sessions/{session_id}", response_model=Dict[str, Any])
+@app.get("/sessions/{session_id}", response_model=Dict[str, Any], include_in_schema=False)
+@v1.get("/sessions/{session_id}", response_model=Dict[str, Any], tags=["Sessions"])
 async def get_session(session_id: str):
     """Get information about a session"""
     try:
@@ -419,7 +457,8 @@ async def get_session(session_id: str):
         logger.error(f"Error retrieving session: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error retrieving session: {str(e)}")
 
-@app.get("/sessions/{session_id}/solutions/{solution_id}", response_model=Dict[str, Any])
+@app.get("/sessions/{session_id}/solutions/{solution_id}", response_model=Dict[str, Any], include_in_schema=False)
+@v1.get("/sessions/{session_id}/solutions/{solution_id}", response_model=Dict[str, Any], tags=["Sessions"])
 async def get_solution(session_id: str, solution_id: str):
     """Get a specific solution from a session"""
     try:
@@ -460,7 +499,8 @@ async def get_solution(session_id: str, solution_id: str):
         logger.error(f"Error retrieving solution: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error retrieving solution: {str(e)}")
 
-@app.post("/sessions/{session_id}/refine/{solution_id}", response_model=SolverResponse)
+@app.post("/sessions/{session_id}/refine/{solution_id}", response_model=SolverResponse, include_in_schema=False)
+@v1.post("/sessions/{session_id}/refine/{solution_id}", response_model=SolverResponse, tags=["Solve"])
 async def refine_solution(session_id: str, solution_id: str, refinement: TextInput):
     """Refine an existing solution based on feedback"""
     try:
@@ -481,13 +521,8 @@ async def refine_solution(session_id: str, solution_id: str, refinement: TextInp
         if not original_solution:
             raise HTTPException(status_code=404, detail=f"Solution {solution_id} not found in session {session_id}")
         
-        # Process the refinement
-        result = get_agent().refine_solution(
-            session_id=session_id,
-            solution_id=solution_id,
-            feedback_text=refinement.text,
-            options=refinement.options or {}
-        )
+        # Process the refinement — agent.refine_solution() accepts a feedback string
+        result = get_agent().refine_solution(feedback=refinement.text)
         
         # Save the refined solution to the session
         new_solution_id = str(uuid.uuid4())
@@ -510,7 +545,7 @@ async def refine_solution(session_id: str, solution_id: str, refinement: TextInp
             "problem_domain": result["domain"],
             "solution": result["solution"],
             "explanation": result.get("explanation"),
-            "reasoning_steps": result.get("reasoning_steps"),
+            "reasoning_steps": normalize_reasoning_steps(result.get("reasoning_steps")),
             "confidence": result.get("confidence", 0.0),
             "alternative_solutions": result.get("alternative_solutions"),
             "metadata": result.get("metadata")
@@ -525,9 +560,20 @@ async def refine_solution(session_id: str, solution_id: str, refinement: TextInp
         raise HTTPException(status_code=500, detail=f"Error refining solution: {str(e)}")
 
 @app.get("/health")
+@v1.get("/health", tags=["System"])
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+    """Health check endpoint with system info"""
+    import platform
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0",
+        "python": platform.python_version(),
+        "active_sessions": len(active_sessions),
+    }
+
+# Register the versioned router
+app.include_router(v1)
 
 # Run the API server
 def start_api_server(agent=None, settings=None, host: str = "0.0.0.0", port: int = 8000):
@@ -539,6 +585,9 @@ def start_api_server(agent=None, settings=None, host: str = "0.0.0.0", port: int
         host: Host to bind the server to
         port: Port to bind the server to
     """
+    # Prevent OpenMP crash with faster-whisper in dev environments
+    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
     # If agent is provided, use it instead of the global one
     if agent is not None:
         app.state.agent = agent

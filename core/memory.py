@@ -49,14 +49,15 @@ class MemorySystem:
     def _initialize_long_term_memory(self):
         """
         Initialize the long-term memory vector store.
+        Uses the best available embeddings provider based on configured API keys.
         """
         try:
             # Create storage directory if it doesn't exist
             storage_path = self.memory_settings.get("storage_path", "./data/memory")
             os.makedirs(storage_path, exist_ok=True)
             
-            # Initialize embeddings
-            embeddings = OpenAIEmbeddings()
+            # Auto-detect the best embeddings provider
+            embeddings = self._get_embeddings()
             
             # Initialize vector store
             self.long_term_memory = Chroma(
@@ -69,6 +70,48 @@ class MemorySystem:
         except Exception as e:
             logger.error(f"Failed to initialize long-term memory: {e}")
             self.long_term_memory = None
+    
+    def _get_embeddings(self):
+        """
+        Get the best available embeddings provider.
+        Priority: OpenAI > Mistral > HuggingFace (free, local).
+        """
+        # 1) Try OpenAI embeddings (best quality)
+        if os.getenv("OPENAI_API_KEY"):
+            try:
+                embeddings = OpenAIEmbeddings()
+                logger.info("Using OpenAI embeddings for memory")
+                return embeddings
+            except Exception as e:
+                logger.warning(f"OpenAI embeddings failed: {e}")
+        
+        # 2) Try Mistral embeddings
+        if os.getenv("MISTRAL_API_KEY"):
+            try:
+                from langchain_mistralai import MistralAIEmbeddings
+                embeddings = MistralAIEmbeddings(
+                    model="mistral-embed",
+                    mistral_api_key=os.getenv("MISTRAL_API_KEY")
+                )
+                logger.info("Using Mistral embeddings for memory")
+                return embeddings
+            except Exception as e:
+                logger.warning(f"Mistral embeddings failed: {e}")
+        
+        # 3) Fallback to HuggingFace sentence-transformers (free, local)
+        try:
+            from langchain.embeddings import HuggingFaceEmbeddings
+            embeddings = HuggingFaceEmbeddings(
+                model_name="all-MiniLM-L6-v2"
+            )
+            logger.info("Using HuggingFace embeddings (local fallback) for memory")
+            return embeddings
+        except Exception as e:
+            logger.warning(f"HuggingFace embeddings failed: {e}")
+        
+        # 4) Last resort — OpenAI (will fail clearly if no key)
+        logger.warning("No embedding provider available — falling back to OpenAI (may fail)")
+        return OpenAIEmbeddings()
     
     def add(self, item: Dict[str, Any], item_type: str) -> str:
         """

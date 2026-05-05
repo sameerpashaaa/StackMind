@@ -172,7 +172,20 @@ class ProblemSolverAgent:
         self.current_step = 0
         
         domain_solver = self.domain_solvers[domain]
-        solution = domain_solver.solve(processed_input, self.current_plan)
+        
+        # MathSolver, CodeSolver, ScienceSolver expect a string; GeneralSolver expects a dict
+        if domain in ("math", "code", "science"):
+            solver_input = processed_input.get("content", "")
+        else:
+            solver_input = processed_input
+        
+        solution = domain_solver.solve(solver_input, self.current_plan)
+        
+        # Map 'content' → 'solution' for CLI display compatibility
+        if "content" in solution and "solution" not in solution:
+            solution["solution"] = solution["content"]
+        if "confidence" not in solution:
+            solution["confidence"] = 0.85
         
         solution["reasoning_steps"] = self.reasoning.get_reasoning_chain(processed_input, solution)
         

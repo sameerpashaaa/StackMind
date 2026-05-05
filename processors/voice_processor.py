@@ -2,410 +2,389 @@
 # -*- coding: utf-8 -*-
 
 """
-Voice Processor Module
+Voice Processor Module — Powered by Whisper (faster-whisper)
 
-This module implements voice processing capabilities for the AI Problem Solver,
-allowing it to handle and analyze voice-based inputs.
+This module implements voice processing capabilities for StackMind
+using OpenAI's Whisper model via the faster-whisper library for
+high-accuracy, offline, GPU-accelerated speech-to-text transcription.
 """
 
 import logging
 import os
 import tempfile
-from typing import Dict, List, Any, Optional, Union
+import time
+from typing import Dict, List, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+# Default Whisper model size — balance between speed and accuracy
+# Options: "tiny", "base", "small", "medium", "large-v3"
+DEFAULT_MODEL_SIZE = "base"
+
+
 class VoiceProcessor:
     """
-    Voice processor for handling voice-based inputs.
-    
-    This processor transcribes and analyzes voice inputs,
-    converting them to text for further processing.
-    
+    Voice processor powered by faster-whisper (local Whisper).
+
+    Provides high-accuracy, offline, GPU-accelerated speech-to-text
+    transcription with automatic language detection, word-level
+    timestamps, and segment-level confidence scores.
+
     Attributes:
         llm: Optional language model for enhanced voice understanding
         settings: Application settings
+        model: The loaded faster-whisper model instance
     """
-    
+
     def __init__(self, llm=None, settings=None):
         """
         Initialize the Voice Processor.
-        
+
         Args:
             llm: Optional language model for enhanced voice understanding
             settings: Optional application settings
         """
         self.llm = llm
         self.settings = settings
-        
-        # Check for required dependencies
-        self._check_dependencies()
-        
-        logger.info("Voice processor initialized")
-    
-    def _check_dependencies(self):
+        self.model = None
+
+        # Load the Whisper model eagerly so first transcription is fast
+        self._load_model()
+
+        logger.info("Voice processor initialized (faster-whisper)")
+
+    # ------------------------------------------------------------------
+    # Model Loading
+    # ------------------------------------------------------------------
+
+    def _load_model(self):
+        """Load the faster-whisper model, preferring GPU when available."""
+        try:
+            from faster_whisper import WhisperModel
+
+            model_size = DEFAULT_MODEL_SIZE
+            if self.settings:
+                model_size = (
+                    self.settings.get("voice", "model_size") or model_size
+                )
+
+            # Detect best available device
+            device, compute_type = self._detect_device()
+
+            logger.info(
+                f"Loading Whisper model '{model_size}' on "
+                f"{device} (compute_type={compute_type})"
+            )
+
+            self.model = WhisperModel(
+                model_size,
+                device=device,
+                compute_type=compute_type,
+            )
+
+            logger.info("Whisper model loaded successfully")
+
+        except ImportError:
+            logger.error(
+                "faster-whisper is not installed. "
+                "Install it with: pip install faster-whisper"
+            )
+        except Exception as e:
+            logger.error(f"Failed to load Whisper model: {e}")
+
+    @staticmethod
+    def _detect_device() -> Tuple[str, str]:
         """
-        Check if required dependencies are installed.
+        Detect the best available compute device.
+
+        Returns:
+            Tuple of (device, compute_type) — e.g. ("cuda", "float16")
         """
         try:
-            import speech_recognition
-            import pydub
+            import torch
+
+            if torch.cuda.is_available():
+                logger.info("CUDA GPU detected — using GPU acceleration")
+                return "cuda", "float16"
         except ImportError:
-            logger.warning("Voice processing dependencies are not installed. "
-                          "Install them with: pip install SpeechRecognition pydub")
-    
+            pass
+
+        logger.info("No GPU detected — falling back to CPU (int8)")
+        return "cpu", "int8"
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
     def process(self, audio_path: str) -> Dict[str, Any]:
         """
-        Process an audio file and extract relevant information.
-        
+        Process an audio file and extract transcription + metadata.
+
         Args:
             audio_path: Path to the audio file
-            
+
         Returns:
-            Dict[str, Any]: Processed audio with transcription and metadata
+            Dict with keys: content_type, file_path, metadata,
+            transcription, segments, and optionally analysis.
         """
-        # Check if file exists
         if not os.path.exists(audio_path):
             logger.error(f"Audio file not found: {audio_path}")
             return {
                 "error": f"Audio file not found: {audio_path}",
-                "content_type": "error"
+                "content_type": "error",
             }
-        
+
+        if self.model is None:
+            logger.error("Whisper model is not loaded")
+            return {
+                "error": "Whisper model is not loaded. "
+                         "Install faster-whisper: pip install faster-whisper",
+                "content_type": "error",
+            }
+
         try:
-            # Initialize result
             result = {
                 "content_type": "voice",
                 "file_path": audio_path,
-                "metadata": {},
-                "transcription": ""
+                "metadata": self._extract_metadata(audio_path),
+                "transcription": "",
+                "segments": [],
             }
-            
-            # Extract basic metadata
-            result["metadata"] = self._extract_metadata(audio_path)
-            
-            # Transcribe audio
-            result["transcription"] = self._transcribe_audio(audio_path)
-            
-            # Analyze audio if transcription is successful
-            if result["transcription"]:
-                result["analysis"] = self._analyze_audio(result["transcription"])
-            
+
+            # Run Whisper transcription
+            transcription, segments, info = self._transcribe(audio_path)
+
+            result["transcription"] = transcription
+            result["segments"] = segments
+            result["metadata"].update({
+                "detected_language": info.get("language", "unknown"),
+                "language_probability": round(
+                    info.get("language_probability", 0.0), 4
+                ),
+                "duration_seconds": round(info.get("duration", 0.0), 2),
+            })
+
+            # Set content field for downstream compatibility
+            result["content"] = transcription
+
+            # Optional LLM-enhanced analysis
+            if transcription and self.llm:
+                result["analysis"] = self._analyze_transcription(transcription)
+
             logger.debug(f"Processed audio: {audio_path}")
             return result
-            
+
         except Exception as e:
-            logger.error(f"Error processing audio: {str(e)}")
+            logger.error(f"Error processing audio: {e}")
             return {
-                "error": f"Error processing audio: {str(e)}",
-                "content_type": "error"
+                "error": f"Error processing audio: {e}",
+                "content_type": "error",
             }
-    
-    def _extract_metadata(self, audio_path: str) -> Dict[str, Any]:
+
+    def record_audio(
+        self, duration: int = 5, output_path: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Extract basic metadata from an audio file.
-        
-        Args:
-            audio_path: Path to the audio file
-            
-        Returns:
-            Dict[str, Any]: Audio metadata
-        """
-        try:
-            from pydub import AudioSegment
-            
-            # Load audio file
-            audio = AudioSegment.from_file(audio_path)
-            
-            metadata = {
-                "duration_seconds": len(audio) / 1000,  # Convert milliseconds to seconds
-                "channels": audio.channels,
-                "sample_width": audio.sample_width,
-                "frame_rate": audio.frame_rate,
-                "file_size_bytes": os.path.getsize(audio_path)
-            }
-            
-            return metadata
-            
-        except ImportError:
-            logger.warning("pydub is not installed. Install it with: pip install pydub")
-            return {
-                "file_size_bytes": os.path.getsize(audio_path) if os.path.exists(audio_path) else 0
-            }
-        except Exception as e:
-            logger.warning(f"Error extracting audio metadata: {str(e)}")
-            return {
-                "file_size_bytes": os.path.getsize(audio_path) if os.path.exists(audio_path) else 0
-            }
-    
-    def _transcribe_audio(self, audio_path: str) -> str:
-        """
-        Transcribe audio to text.
-        
-        Args:
-            audio_path: Path to the audio file
-            
-        Returns:
-            str: Transcribed text
-        """
-        try:
-            import speech_recognition as sr
-            from pydub import AudioSegment
-            
-            # Initialize recognizer
-            recognizer = sr.Recognizer()
-            
-            # Convert audio to WAV format if needed
-            audio_format = audio_path.split('.')[-1].lower()
-            if audio_format != 'wav':
-                logger.debug(f"Converting {audio_format} to WAV format for transcription")
-                audio = AudioSegment.from_file(audio_path)
-                with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_wav:
-                    temp_wav_path = temp_wav.name
-                audio.export(temp_wav_path, format='wav')
-                audio_path_for_transcription = temp_wav_path
-            else:
-                audio_path_for_transcription = audio_path
-            
-            # Load audio file
-            with sr.AudioFile(audio_path_for_transcription) as source:
-                # Adjust for ambient noise
-                recognizer.adjust_for_ambient_noise(source)
-                # Record audio
-                audio_data = recognizer.record(source)
-            
-            # Clean up temporary file if created
-            if audio_format != 'wav':
-                os.unlink(temp_wav_path)
-            
-            # Use appropriate recognition service based on settings
-            if self.settings and hasattr(self.settings, 'speech_recognition') and \
-               self.settings.speech_recognition.get('service') == 'google_cloud':
-                # Use Google Cloud Speech API if configured
-                if not self.settings.speech_recognition.get('google_cloud_credentials'):
-                    logger.warning("Google Cloud Speech API credentials not configured")
-                    return self._fallback_transcription(audio_path)
-                
-                return recognizer.recognize_google_cloud(
-                    audio_data,
-                    credentials_json=self.settings.speech_recognition.get('google_cloud_credentials')
-                )
-            elif self.settings and hasattr(self.settings, 'speech_recognition') and \
-                 self.settings.speech_recognition.get('service') == 'whisper':
-                # Use OpenAI Whisper API if configured
-                if not self.settings.speech_recognition.get('whisper_api_key'):
-                    logger.warning("Whisper API key not configured")
-                    return self._fallback_transcription(audio_path)
-                
-                # This would require a custom implementation or a library that supports Whisper API
-                return self._transcribe_with_whisper(audio_path)
-            else:
-                # Default to Google Speech Recognition (free, but limited)
-                return recognizer.recognize_google(audio_data)
-            
-        except ImportError:
-            logger.warning("speech_recognition or pydub is not installed. "
-                          "Install them with: pip install SpeechRecognition pydub")
-            return ""
-        except sr.UnknownValueError:
-            logger.warning("Speech recognition could not understand audio")
-            return ""
-        except sr.RequestError as e:
-            logger.warning(f"Could not request results from speech recognition service: {str(e)}")
-            return ""
-        except Exception as e:
-            logger.warning(f"Error transcribing audio: {str(e)}")
-            return ""
-    
-    def _transcribe_with_whisper(self, audio_path: str) -> str:
-        """
-        Transcribe audio using OpenAI's Whisper API.
-        
-        Args:
-            audio_path: Path to the audio file
-            
-        Returns:
-            str: Transcribed text
-        """
-        try:
-            import openai
-            
-            # Set API key from settings
-            if self.settings and hasattr(self.settings, 'speech_recognition'):
-                openai.api_key = self.settings.speech_recognition.get('whisper_api_key')
-            
-            # Open audio file
-            with open(audio_path, "rb") as audio_file:
-                # Call Whisper API
-                response = openai.Audio.transcribe("whisper-1", audio_file)
-            
-            # Extract transcription
-            return response.get("text", "")
-            
-        except ImportError:
-            logger.warning("openai package is not installed. Install it with: pip install openai")
-            return ""
-        except Exception as e:
-            logger.warning(f"Error transcribing with Whisper: {str(e)}")
-            return ""
-    
-    def _fallback_transcription(self, audio_path: str) -> str:
-        """
-        Fallback transcription method when primary methods fail.
-        
-        Args:
-            audio_path: Path to the audio file
-            
-        Returns:
-            str: Transcribed text or error message
-        """
-        try:
-            import speech_recognition as sr
-            
-            # Initialize recognizer
-            recognizer = sr.Recognizer()
-            
-            # Load audio file
-            with sr.AudioFile(audio_path) as source:
-                # Record audio
-                audio_data = recognizer.record(source)
-            
-            # Try multiple services
-            try:
-                return recognizer.recognize_google(audio_data)
-            except:
-                try:
-                    return recognizer.recognize_sphinx(audio_data)
-                except:
-                    return "[Transcription failed with all available methods]"
-                
-        except ImportError:
-            return "[Speech recognition libraries not available]"
-        except Exception as e:
-            return f"[Transcription error: {str(e)}]"
-    
-    def _analyze_audio(self, transcription: str) -> Dict[str, Any]:
-        """
-        Analyze transcribed audio to extract additional information.
-        
-        Args:
-            transcription: Transcribed text from audio
-            
-        Returns:
-            Dict[str, Any]: Analysis results
-        """
-        # Initialize analysis
-        analysis = {
-            "detected_language": self._detect_language(transcription),
-            "contains_question": '?' in transcription,
-            "word_count": len(transcription.split())
-        }
-        
-        # Use LLM for enhanced analysis if available
-        if self.llm and transcription:
-            try:
-                from langchain.schema import HumanMessage, SystemMessage
-                
-                # Create prompt for analysis
-                messages = [
-                    SystemMessage(content="You are an AI assistant that analyzes transcribed speech. "
-                                        "Extract key information, intent, and sentiment."),
-                    HumanMessage(content=f"Analyze this transcribed speech: {transcription}")
-                ]
-                
-                # Generate analysis
-                response = self.llm.generate([messages])
-                llm_analysis = response.generations[0][0].text.strip()
-                
-                # Add LLM analysis
-                analysis["enhanced_analysis"] = llm_analysis
-                
-            except Exception as e:
-                logger.warning(f"Error generating enhanced audio analysis: {str(e)}")
-        
-        return analysis
-    
-    def _detect_language(self, text: str) -> str:
-        """
-        Detect the language of the transcribed text.
-        
-        This is a simple implementation that could be enhanced with NLP libraries.
-        
-        Args:
-            text: Transcribed text
-            
-        Returns:
-            str: Detected language code
-        """
-        try:
-            from langdetect import detect
-            
-            if not text or len(text.strip()) < 5:
-                return "unknown"
-                
-            return detect(text)
-            
-        except ImportError:
-            logger.warning("langdetect is not installed. Install it with: pip install langdetect")
-            return "unknown"
-        except Exception as e:
-            logger.warning(f"Error detecting language: {str(e)}")
-            return "unknown"
-    
-    def record_audio(self, duration: int = 5, output_path: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Record audio from the microphone.
-        
+        Record audio from the microphone and transcribe it.
+
         Args:
             duration: Duration in seconds to record
             output_path: Optional path to save the recorded audio
-            
+
         Returns:
-            Dict[str, Any]: Result with file path and transcription
+            Dict with transcription results
         """
         try:
-            import speech_recognition as sr
-            import wave
+            import sounddevice as sd
             import numpy as np
-            
-            # Initialize recognizer
-            recognizer = sr.Recognizer()
-            
-            # Create output path if not provided
+            import wave
+
+            sample_rate = 16000  # Whisper expects 16 kHz
+
             if not output_path:
-                output_dir = tempfile.gettempdir()
-                output_path = os.path.join(output_dir, f"recorded_audio_{int(time.time())}.wav")
-            
-            logger.info(f"Recording audio for {duration} seconds...")
-            
-            # Record audio from microphone
-            with sr.Microphone() as source:
-                # Adjust for ambient noise
-                recognizer.adjust_for_ambient_noise(source)
-                
-                # Record audio
-                audio_data = recognizer.listen(source, timeout=duration)
-                
-                # Save audio to file
-                with open(output_path, "wb") as f:
-                    f.write(audio_data.get_wav_data())
-            
-            logger.info(f"Audio recorded and saved to {output_path}")
-            
-            # Process the recorded audio
-            result = self.process(output_path)
-            
-            return result
-            
+                output_path = os.path.join(
+                    tempfile.gettempdir(),
+                    f"stackmind_recording_{int(time.time())}.wav",
+                )
+
+            logger.info(f"Recording audio for {duration}s …")
+            audio_data = sd.rec(
+                int(duration * sample_rate),
+                samplerate=sample_rate,
+                channels=1,
+                dtype="int16",
+            )
+            sd.wait()  # Block until recording is done
+
+            # Save as WAV
+            with wave.open(output_path, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)  # 16-bit
+                wf.setframerate(sample_rate)
+                wf.writeframes(audio_data.tobytes())
+
+            logger.info(f"Audio saved to {output_path}")
+
+            # Transcribe the recording
+            return self.process(output_path)
+
         except ImportError:
-            logger.error("Required libraries for audio recording are not installed")
+            logger.error(
+                "sounddevice/numpy not installed. "
+                "Install with: pip install sounddevice numpy"
+            )
             return {
-                "error": "Required libraries for audio recording are not installed",
-                "content_type": "error"
+                "error": "Recording dependencies missing. "
+                         "Run: pip install sounddevice numpy",
+                "content_type": "error",
             }
         except Exception as e:
-            logger.error(f"Error recording audio: {str(e)}")
+            logger.error(f"Error recording audio: {e}")
             return {
-                "error": f"Error recording audio: {str(e)}",
-                "content_type": "error"
+                "error": f"Error recording audio: {e}",
+                "content_type": "error",
             }
+
+    # ------------------------------------------------------------------
+    # Internal Helpers
+    # ------------------------------------------------------------------
+
+    def _transcribe(
+        self, audio_path: str
+    ) -> Tuple[str, List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        Run Whisper transcription on an audio file.
+
+        Args:
+            audio_path: Path to the audio file
+
+        Returns:
+            Tuple of (full_text, segments_list, info_dict)
+        """
+        segments_iter, info = self.model.transcribe(
+            audio_path,
+            beam_size=5,
+            word_timestamps=True,
+            vad_filter=True,  # Skip silence for speed
+        )
+
+        segments_list = []
+        full_text_parts = []
+
+        for seg in segments_iter:
+            seg_dict = {
+                "start": round(seg.start, 2),
+                "end": round(seg.end, 2),
+                "text": seg.text.strip(),
+                "avg_logprob": round(seg.avg_logprob, 4),
+                "no_speech_prob": round(seg.no_speech_prob, 4),
+            }
+
+            # Include word-level timestamps if available
+            if seg.words:
+                seg_dict["words"] = [
+                    {
+                        "word": w.word.strip(),
+                        "start": round(w.start, 2),
+                        "end": round(w.end, 2),
+                        "probability": round(w.probability, 4),
+                    }
+                    for w in seg.words
+                ]
+
+            segments_list.append(seg_dict)
+            full_text_parts.append(seg.text.strip())
+
+        full_text = " ".join(full_text_parts)
+
+        info_dict = {
+            "language": info.language,
+            "language_probability": info.language_probability,
+            "duration": info.duration,
+        }
+
+        logger.info(
+            f"Transcription complete — language={info.language} "
+            f"({info.language_probability:.1%}), "
+            f"segments={len(segments_list)}, "
+            f"duration={info.duration:.1f}s"
+        )
+
+        return full_text, segments_list, info_dict
+
+    def _extract_metadata(self, audio_path: str) -> Dict[str, Any]:
+        """
+        Extract basic file metadata from an audio file.
+
+        Args:
+            audio_path: Path to the audio file
+
+        Returns:
+            Dict with file metadata
+        """
+        metadata = {
+            "file_size_bytes": os.path.getsize(audio_path),
+            "file_name": os.path.basename(audio_path),
+            "file_extension": os.path.splitext(audio_path)[1].lower(),
+        }
+
+        # Try to read WAV header for extra info
+        if metadata["file_extension"] == ".wav":
+            try:
+                import wave
+
+                with wave.open(audio_path, "rb") as wf:
+                    metadata["channels"] = wf.getnchannels()
+                    metadata["sample_width"] = wf.getsampwidth()
+                    metadata["frame_rate"] = wf.getframerate()
+                    metadata["num_frames"] = wf.getnframes()
+                    metadata["duration_seconds"] = round(
+                        wf.getnframes() / wf.getframerate(), 2
+                    )
+            except Exception as e:
+                logger.debug(f"Could not read WAV header: {e}")
+
+        return metadata
+
+    def _analyze_transcription(self, transcription: str) -> Dict[str, Any]:
+        """
+        Use the LLM to perform enhanced analysis on the transcription.
+
+        Args:
+            transcription: The transcribed text
+
+        Returns:
+            Dict with analysis results
+        """
+        analysis: Dict[str, Any] = {
+            "word_count": len(transcription.split()),
+            "contains_question": "?" in transcription,
+        }
+
+        try:
+            from langchain.schema import HumanMessage, SystemMessage
+
+            messages = [
+                SystemMessage(
+                    content=(
+                        "You are an AI assistant that analyzes transcribed "
+                        "speech. Extract key information, intent, and "
+                        "sentiment. Respond concisely."
+                    )
+                ),
+                HumanMessage(
+                    content=(
+                        f"Analyze this transcribed speech:\n\n{transcription}"
+                    )
+                ),
+            ]
+
+            response = self.llm.generate([messages])
+            analysis["enhanced_analysis"] = (
+                response.generations[0][0].text.strip()
+            )
+
+        except Exception as e:
+            logger.warning(f"Enhanced analysis failed: {e}")
+
+        return analysis

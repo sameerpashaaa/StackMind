@@ -192,6 +192,8 @@ class ProblemSolverCLI:
     def _process_text_input(self, text: str, domain_hint: Optional[str] = None):
         """Process text input and display the result"""
         try:
+            print(f"\n{Fore.YELLOW}Thinking... (this may take a minute){Style.RESET_ALL}", flush=True)
+            
             # Process the input through the agent's solve pipeline
             result = self.agent.solve_problem(
                 input_data=text,

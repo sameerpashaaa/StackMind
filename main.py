@@ -11,15 +11,21 @@ from interfaces.cli import CommandLineInterface
 from interfaces.api import start_api_server
 from config.settings import Settings
 
-# Configure logging
+# Configure logging — file gets everything, console only shows warnings+
+_file_handler = logging.FileHandler("problem_solver.log")
+_file_handler.setLevel(logging.DEBUG)
+_console_handler = logging.StreamHandler()
+_console_handler.setLevel(logging.WARNING)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("problem_solver.log"),
-        logging.StreamHandler()
-    ]
+    handlers=[_file_handler, _console_handler]
 )
+
+# Silence noisy third-party loggers from the console
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # Load environment variables

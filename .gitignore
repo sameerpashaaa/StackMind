@@ -40,13 +40,9 @@ logs/
 data/*
 !data/README.md
 
-# Generated files
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.html
+# Generated files (project root only, not frontend)
 *.pdf
+# Note: DO NOT add *.html — it breaks frontend/index.html
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -59,3 +55,12 @@ htmlcov/
 # OS specific
 .DS_Store
 Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Production build
+frontend/dist/
+
+# Node
+frontend/node_modules/
