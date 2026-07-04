@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
 import json
+import os
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 
 class Settings:
 
@@ -12,14 +13,14 @@ class Settings:
         "app": {
             "name": "StackMind",
             "version": "0.1.0",
-            "description": "Multi-step reasoning and problem-solving AI agent"
+            "description": "Multi-step reasoning and problem-solving AI agent",
         },
         "api": {
             "host": "127.0.0.1",
-            "port": 8000,
+            "port": 8010,
             "debug": False,
             "enable_docs": True,
-            "cors_origins": ["*"]
+            "cors_origins": ["*"],
         },
         "llm": {
             "provider": "mistral",
@@ -28,13 +29,13 @@ class Settings:
             "max_tokens": 2000,
             "top_p": 1.0,
             "frequency_penalty": 0.0,
-            "presence_penalty": 0.0
+            "presence_penalty": 0.0,
         },
         "memory": {
             "type": "vector",
             "max_history": 100,
             "persistence": True,
-            "storage_path": "./data/memory"
+            "storage_path": "./data/memory",
         },
         "input_processing": {
             "enable_text": True,
@@ -43,16 +44,25 @@ class Settings:
             "enable_code": True,
             "max_image_size": 10 * 1024 * 1024,
             "supported_image_formats": ["jpg", "jpeg", "png", "gif", "bmp"],
-            "supported_code_languages": ["python", "javascript", "java", "c", "cpp", "csharp", "go", "ruby"]
+            "supported_code_languages": [
+                "python",
+                "javascript",
+                "java",
+                "c",
+                "cpp",
+                "csharp",
+                "go",
+                "ruby",
+            ],
         },
         "output_processing": {
             "default_format": "markdown",
             "enable_visualization": True,
-            "visualization_types": ["tree", "graph", "flowchart", "table"]
+            "visualization_types": ["tree", "graph", "flowchart", "table"],
         },
         "domains": {
             "enabled": ["general", "math", "code", "science"],
-            "auto_detect": True
+            "auto_detect": True,
         },
         "integrations": {
             "enable_web_search": True,
@@ -60,19 +70,19 @@ class Settings:
             "enable_data_sources": True,
             "safe_mode": True,
             "allowed_domains": ["*"],
-            "max_web_requests": 10
+            "max_web_requests": 10,
         },
         "privacy": {
             "store_conversations": True,
             "anonymize_personal_data": True,
-            "data_retention_days": 30
+            "data_retention_days": 30,
         },
         "performance": {
             "optimization_priority": "balanced",
             "cache_results": True,
             "parallel_processing": True,
-            "max_parallel_tasks": 4
-        }
+            "max_parallel_tasks": 4,
+        },
     }
 
     def __init__(self, profile: str = "default"):
@@ -86,7 +96,7 @@ class Settings:
 
         if config_file.exists():
             try:
-                with open(config_file, 'r') as f:
+                with open(config_file, "r") as f:
                     file_config = json.load(f)
                     self._deep_merge(config, file_config)
             except Exception as e:
@@ -97,7 +107,11 @@ class Settings:
 
     def _deep_merge(self, target: Dict, source: Dict) -> None:
         for key, value in source.items():
-            if key in target and isinstance(target[key], dict) and isinstance(value, dict):
+            if (
+                key in target
+                and isinstance(target[key], dict)
+                and isinstance(value, dict)
+            ):
                 self._deep_merge(target[key], value)
             else:
                 target[key] = value
@@ -106,20 +120,24 @@ class Settings:
         prefix = "PROBLEM_SOLVER_"
         for env_key, env_value in os.environ.items():
             if env_key.startswith(prefix):
-                key_parts = env_key[len(prefix):].lower().split('_')
+                key_parts = env_key[len(prefix) :].lower().split("_")
                 if len(key_parts) >= 2:
                     section = key_parts[0]
-                    key = '_'.join(key_parts[1:])
+                    key = "_".join(key_parts[1:])
                     if section in config and key in config[section]:
                         original_value = config[section][key]
                         if isinstance(original_value, bool):
-                            config[section][key] = env_value.lower() in ('true', 'yes', '1')
+                            config[section][key] = env_value.lower() in (
+                                "true",
+                                "yes",
+                                "1",
+                            )
                         elif isinstance(original_value, int):
                             config[section][key] = int(env_value)
                         elif isinstance(original_value, float):
                             config[section][key] = float(env_value)
                         elif isinstance(original_value, list):
-                            config[section][key] = env_value.split(',')
+                            config[section][key] = env_value.split(",")
                         else:
                             config[section][key] = env_value
 
@@ -134,7 +152,7 @@ class Settings:
         config_file = config_dir / f"{self.profile}.json"
         config_dir.mkdir(parents=True, exist_ok=True)
         try:
-            with open(config_file, 'w') as f:
+            with open(config_file, "w") as f:
                 json.dump(self.config, f, indent=2)
         except Exception as e:
             print(f"Error saving config file {config_file}: {e}")

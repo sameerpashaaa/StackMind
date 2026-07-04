@@ -56,11 +56,11 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Docker
-docker-compose.override.yml
-
 # Production build
 frontend/dist/
 
 # Node
 frontend/node_modules/
+
+# Temporary / experimental scaffolds
+frontend-new/

@@ -7,13 +7,13 @@
  * API base URL — resolved at runtime:
  *  1. window.__STACKMIND_API_BASE (injected by deployment)
  *  2. In development, Vite proxies /solve, /feedback, /sessions, /health
- *     to localhost:8000, so we can use '' (same origin).
- *  3. Fallback to localhost:8000 for direct API testing.
+ *     to localhost:8010, so we can use '' (same origin).
+ *  3. Fallback to localhost:8010 for direct API testing.
  */
 const API_BASE =
   window.__STACKMIND_API_BASE ||
   (import.meta.env?.DEV ? '' : '') ||
-  'http://localhost:8000';
+  'http://localhost:8010';
 
 class ApiClient {
   constructor(baseUrl = API_BASE) {
@@ -99,6 +99,43 @@ class ApiClient {
     return this._request('POST', `/sessions/${sessionId}/refine/${solutionId}`, {
       text,
     });
+  }
+
+  // ── Multi-Agent Pipeline ──────────────────────────────────────
+
+  /**
+   * Stage 2: Decompose query into summary + 3 agent sub-tasks.
+   * @param {string}      query   - Raw user query
+   * @param {string|null} context - Optional prior conversation context string
+   * @returns {{ summary: string, agents: Array<{id: number, task: string}> }}
+   */
+  async pipelineDecompose(query, context = null) {
+    return this._request('POST', '/pipeline/decompose', { query, context });
+  }
+
+  /**
+   * Stage 3: Run a single agent on its sub-task.
+   * @param {string} task    - The agent's assigned sub-task
+   * @param {number} agentId - Agent ID (1, 2, or 3)
+   * @param {string} query   - Original user query (for context)
+   * @returns {{ agent_id: number, output: string }}
+   */
+  async pipelineRunAgent(task, agentId, query) {
+    return this._request('POST', '/pipeline/agent', {
+      task,
+      agent_id: agentId,
+      query,
+    });
+  }
+
+  /**
+   * Stage 4+5: Synthesize 3 agent outputs into a final answer.
+   * @param {string} query  - Original user query
+   * @param {Array}  agents - [{id, task, output}]
+   * @returns {{ final_answer: string }}
+   */
+  async pipelineSynthesize(query, agents) {
+    return this._request('POST', '/pipeline/synthesize', { query, agents });
   }
 }
 

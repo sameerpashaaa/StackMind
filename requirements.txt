@@ -18,7 +18,7 @@ colorama>=0.4.6
 pyreadline3>=3.4.1         # readline replacement for Windows
 
 # --- Memory & Vector Storage ---
-chromadb>=0.4.6
+chromadb>=1.0.0,!=1.5.5,!=1.5.6,!=1.5.7,!=1.5.8,!=1.5.9  # PYSEC-2026-311: avoid 1.5.x range
 
 # --- Multi-Modal Input Processing ---
 pillow>=9.5.0              # Image processing

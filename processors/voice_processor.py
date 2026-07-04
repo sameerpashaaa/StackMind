@@ -13,7 +13,7 @@ import logging
 import os
 import tempfile
 import time
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +64,7 @@ class VoiceProcessor:
 
             model_size = DEFAULT_MODEL_SIZE
             if self.settings:
-                model_size = (
-                    self.settings.get("voice", "model_size") or model_size
-                )
+                model_size = self.settings.get("voice", "model_size") or model_size
 
             # Detect best available device
             device, compute_type = self._detect_device()
@@ -138,7 +136,7 @@ class VoiceProcessor:
             logger.error("Whisper model is not loaded")
             return {
                 "error": "Whisper model is not loaded. "
-                         "Install faster-whisper: pip install faster-whisper",
+                "Install faster-whisper: pip install faster-whisper",
                 "content_type": "error",
             }
 
@@ -156,13 +154,15 @@ class VoiceProcessor:
 
             result["transcription"] = transcription
             result["segments"] = segments
-            result["metadata"].update({
-                "detected_language": info.get("language", "unknown"),
-                "language_probability": round(
-                    info.get("language_probability", 0.0), 4
-                ),
-                "duration_seconds": round(info.get("duration", 0.0), 2),
-            })
+            result["metadata"].update(
+                {
+                    "detected_language": info.get("language", "unknown"),
+                    "language_probability": round(
+                        info.get("language_probability", 0.0), 4
+                    ),
+                    "duration_seconds": round(info.get("duration", 0.0), 2),
+                }
+            )
 
             # Set content field for downstream compatibility
             result["content"] = transcription
@@ -195,9 +195,10 @@ class VoiceProcessor:
             Dict with transcription results
         """
         try:
-            import sounddevice as sd
-            import numpy as np
             import wave
+
+            import numpy as np
+            import sounddevice as sd
 
             sample_rate = 16000  # Whisper expects 16 kHz
 
@@ -235,7 +236,7 @@ class VoiceProcessor:
             )
             return {
                 "error": "Recording dependencies missing. "
-                         "Run: pip install sounddevice numpy",
+                "Run: pip install sounddevice numpy",
                 "content_type": "error",
             }
         except Exception as e:
@@ -373,16 +374,12 @@ class VoiceProcessor:
                     )
                 ),
                 HumanMessage(
-                    content=(
-                        f"Analyze this transcribed speech:\n\n{transcription}"
-                    )
+                    content=(f"Analyze this transcribed speech:\n\n{transcription}")
                 ),
             ]
 
             response = self.llm.generate([messages])
-            analysis["enhanced_analysis"] = (
-                response.generations[0][0].text.strip()
-            )
+            analysis["enhanced_analysis"] = response.generations[0][0].text.strip()
 
         except Exception as e:
             logger.warning(f"Enhanced analysis failed: {e}")

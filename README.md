@@ -95,6 +95,10 @@ python main.py --mode api
 python main.py --mode cli --problem "Find all prime numbers less than 50"
 ```
 
+### One-Click Launch on Windows
+
+Double-click [Start-StackMind.bat](Start-StackMind.bat) to start the backend API, start the frontend dev server, and open the UI in your browser.
+
 ---
 
 ## How It Works
@@ -243,7 +247,6 @@ Interactive API docs at: `http://localhost:8000/docs`
 - [ ] **Streaming Responses** — Real-time reasoning output
 - [ ] **Google Gemini Integration** — As an additional LLM provider
 - [ ] **Web UI** — Streamlit/Gradio dashboard for browser-based use
-- [ ] **Docker Support** — One-command deployment
 - [ ] **Plugin System** — Drop-in custom solvers
 - [ ] **RAG** — Upload documents and query them
 - [ ] **Multi-Agent Collaboration** — LangGraph-powered agent teams

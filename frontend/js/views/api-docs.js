@@ -19,7 +19,7 @@ export function renderApiDocs(container) {
         <p class="page-header__subtitle">Interactive documentation and testing playground for the StackMind REST API.</p>
         <div style="margin-top:var(--space-md);display:flex;gap:var(--space-sm);">
           <span class="chip chip--success"><span class="chip__dot chip__dot--success"></span> API Online</span>
-          <span class="chip chip--default">Base URL: http://localhost:8000</span>
+          <span class="chip chip--default">Base URL: http://localhost:8010</span>
         </div>
       </div>
 
@@ -64,7 +64,7 @@ export function renderApiDocs(container) {
     try {
       const opts = { method, headers: { 'Content-Type': 'application/json' } };
       if (method === 'POST') opts.body = body;
-      const res = await fetch(`http://localhost:8000${url}`, opts);
+      const res = await fetch(`http://localhost:8010${url}`, opts);
       const data = await res.json();
       output.textContent = JSON.stringify(data, null, 2);
     } catch (err) { output.textContent = `Error: ${err.message}`; }

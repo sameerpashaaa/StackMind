@@ -3,8 +3,15 @@
  */
 import { api } from '../api.js';
 import { store } from '../state.js';
+import { runPipeline, regeneratePipeline, createInitialPipelineState } from '../pipeline.js';
+import { mountPipelineView, updatePipelineView } from './pipeline-view.js';
 
-export function renderHome(container) {
+// Module-level pipeline state (persists across follow-ups in same session)
+let _currentPipelineState = createInitialPipelineState();
+let _container = null; // reference to main-content, set on renderHome
+
+export function renderHome(container, followUpContext = null) {
+  _container = container;
   container.innerHTML = `
     <div class="page">
       <div class="home-workspace">
@@ -224,42 +231,65 @@ export function renderHome(container) {
     reader.readAsDataURL(file);
   }
 
+  // Pre-populate textarea if returning from a follow-up
+  if (followUpContext?.previousQuery) {
+    problemInput.value = '';
+    problemInput.placeholder = `Follow-up to: "${followUpContext.previousQuery.slice(0, 60)}…"`;
+    problemInput.focus();
+  } else {
+    problemInput.focus();
+  }
+
+  // ── Helper: launch pipeline ──────────────────────────────────
+  function launchPipeline(query, inputType) {
+    _currentPipelineState = createInitialPipelineState();
+
+    const context = followUpContext
+      ? { query: followUpContext.previousQuery, answer: followUpContext.previousAnswer }
+      : null;
+
+    // Transition: hide input workspace, mount pipeline view
+    mountPipelineView(container, query, {
+      onBack: () => {
+        // Return to clean home — no follow-up context
+        renderHome(container);
+      },
+      onFollowUp: ({ query: prevQuery, answer: prevAnswer }) => {
+        renderHome(container, {
+          previousQuery: prevQuery,
+          previousAnswer: prevAnswer,
+        });
+      },
+      onRegenerate: () => {
+        regeneratePipeline(_currentPipelineState, (newState) => {
+          _currentPipelineState = newState;
+          updatePipelineView(container, newState);
+        });
+      },
+    });
+
+    // Run pipeline
+    runPipeline(query, inputType, context, (newState) => {
+      _currentPipelineState = newState;
+      updatePipelineView(container, newState);
+    });
+  }
+
   // Solve text problem
-  solveBtn.addEventListener('click', async () => {
+  solveBtn.addEventListener('click', () => {
     const text = problemInput.value.trim();
     if (!text) return;
-
-    showLoading();
-    try {
-      const result = await api.solveText(text, null, domainSelect.value || null);
-      store.cacheSolution(result.solution_id, result);
-      store.update({
-        currentSessionId: result.session_id,
-        currentSolutionId: result.solution_id,
-      });
-      window.location.hash = `/solution/${result.session_id}/${result.solution_id}`;
-    } catch (err) {
-      hideLoading();
-      showToast(`Error: ${err.message}`, 'error');
-    }
+    launchPipeline(text, 'text');
   });
 
   // Solve image
-  solveImageBtn.addEventListener('click', async () => {
+  solveImageBtn.addEventListener('click', () => {
     if (!selectedImageBase64) return;
-    showLoading();
-    try {
-      const result = await api.solveImage(selectedImageBase64);
-      store.cacheSolution(result.solution_id, result);
-      store.update({
-        currentSessionId: result.session_id,
-        currentSolutionId: result.solution_id,
-      });
-      window.location.hash = `/solution/${result.session_id}/${result.solution_id}`;
-    } catch (err) {
-      hideLoading();
-      showToast(`Error: ${err.message}`, 'error');
-    }
+    // Use the filename or a generic label as the query string for the pipeline
+    const imageLabel = imagePreview.src
+      ? 'Analyze the uploaded image and provide detailed insights'
+      : 'Image analysis request';
+    launchPipeline(imageLabel, 'image');
   });
 
   // Solve code
@@ -267,22 +297,11 @@ export function renderHome(container) {
   const codeBtn = container.querySelector('#solve-code-btn');
   const codeLang = container.querySelector('#code-lang-select');
 
-  codeBtn.addEventListener('click', async () => {
+  codeBtn.addEventListener('click', () => {
     const code = codeInput.value.trim();
     if (!code) return;
-    showLoading();
-    try {
-      const result = await api.solveCode(code, codeLang.value || null);
-      store.cacheSolution(result.solution_id, result);
-      store.update({
-        currentSessionId: result.session_id,
-        currentSolutionId: result.solution_id,
-      });
-      window.location.hash = `/solution/${result.session_id}/${result.solution_id}`;
-    } catch (err) {
-      hideLoading();
-      showToast(`Error: ${err.message}`, 'error');
-    }
+    const lang = codeLang.value ? `${codeLang.value} ` : '';
+    launchPipeline(`Analyze and explain this ${lang}code:\n\n${code.slice(0, 400)}`, 'code');
   });
 
   // ── Voice Recording ───────────────────────────────────────────
@@ -340,18 +359,22 @@ export function renderHome(container) {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         const base64Audio = await blobToBase64(audioBlob);
 
-        // Send to backend
-        showLoading();
+        // Launch pipeline with the transcription (best-effort)
         try {
-          const result = await api.solveVoice(base64Audio);
-          store.cacheSolution(result.solution_id, result);
-          store.update({
-            currentSessionId: result.session_id,
-            currentSolutionId: result.solution_id,
-          });
-          window.location.hash = `/solution/${result.session_id}/${result.solution_id}`;
+          voiceStatus.textContent = 'Processing...';
+          // Attempt transcription via backend, fall back to generic label
+          let queryText = 'Analyze my voice query and provide a comprehensive answer';
+          try {
+            const result = await api.solveVoice(base64Audio);
+            // If backend returns a transcription in metadata, use it
+            if (result?.metadata?.transcription) {
+              queryText = result.metadata.transcription;
+            }
+          } catch {
+            // Backend offline or error — use generic label
+          }
+          launchPipeline(queryText, 'voice');
         } catch (err) {
-          hideLoading();
           voiceStatus.textContent = 'Click to start recording';
           showToast(`Error: ${err.message}`, 'error');
         }
@@ -398,6 +421,7 @@ export function renderHome(container) {
     }
   });
 
+  // showLoading / hideLoading retained for voice processing state
   function showLoading() {
     container.querySelectorAll('.input-panel, .input-modes, .home-footer').forEach(el => el.classList.add('hidden'));
     solveLoading.classList.remove('hidden');
@@ -411,9 +435,6 @@ export function renderHome(container) {
     container.querySelectorAll('.input-panel').forEach(p => p.classList.add('hidden'));
     container.querySelector(`#${activeMode}-panel`)?.classList.remove('hidden');
   }
-
-  // Focus the input
-  problemInput.focus();
 }
 
 function showToast(message, type = '') {
